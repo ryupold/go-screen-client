@@ -2,20 +2,21 @@ package main
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"image"
 	"image/jpeg"
-	"net/http"
+	"net"
 
-	"github.com/saljam/mjpeg"
 	"github.com/vova616/screenshot"
 )
 
-func startStreaming() {
-	stream := mjpeg.NewStream()
-	stream.FrameInterval = 10
+func startStreaming(ip string, port uint16) error {
 
-	go http.ListenAndServe("0.0.0.0:4545", stream)
+	con, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ip, port))
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		for {
@@ -28,7 +29,18 @@ func startStreaming() {
 				fmt.Printf("ERROR: %+v", err)
 			}
 
-			stream.UpdateJPEG(buffer.Bytes())
+			sizeBytes := make([]byte, 4)
+			binary.BigEndian.PutUint32(sizeBytes, uint32(buffer.Len()))
+
+			n, err := con.Write(append(sizeBytes, buffer.Bytes()...))
+			if err != nil {
+				panic(err)
+			}
+			if n != buffer.Len() {
+				panic(fmt.Errorf("%d != %d written bytes differ", n, buffer.Len()))
+			}
 		}
 	}()
+
+	return nil
 }
