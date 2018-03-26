@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"image"
@@ -12,20 +13,21 @@ import (
 )
 
 func startStreaming(ip string, port uint16) error {
-
+	ctx, cancel := context.WithCancel(context.Background())
 	con, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
 		return err
 	}
 
 	go func() {
+		defer cancel()
 		for {
 			img, err := screenshot.CaptureScreen()
 			if err != nil || img == nil {
 				panic(err)
 			}
 			buffer := &bytes.Buffer{}
-			if err := jpeg.Encode(buffer, image.Image(img), &jpeg.Options{Quality: 100 /*default*/}); err != nil {
+			if err := jpeg.Encode(buffer, image.Image(img), &jpeg.Options{Quality: 100 /*default: 75*/}); err != nil {
 				fmt.Printf("ERROR: %+v", err)
 			}
 
@@ -42,5 +44,6 @@ func startStreaming(ip string, port uint16) error {
 		}
 	}()
 
+	<-ctx.Done()
 	return nil
 }
