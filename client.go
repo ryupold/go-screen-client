@@ -12,19 +12,23 @@ import (
 	"github.com/vova616/screenshot"
 )
 
-func startStreaming(ip string, port uint16) error {
-	ctx, cancel := context.WithCancel(context.Background())
+func startStreaming(ctx context.Context, ip string, port uint16) error {
+	ctx, cancel := context.WithCancel(ctx)
 	con, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ip, port))
 	if err != nil {
+		defer log("cannot connect: ", err)
 		cancel()
 		return err
 	}
 
 	errChan := make(chan error)
 
+	isCancelled := new(bool)
 	go func() {
 		defer close(errChan)
 		defer cancel()
+		defer log("stopping stream")
+
 		defer func() {
 			pancake := recover()
 			if pancake == nil {
@@ -36,24 +40,21 @@ func startStreaming(ip string, port uint16) error {
 			}
 		}()
 
-		for {
+		for !*isCancelled {
 			img, err := screenshot.CaptureScreen()
 			if err != nil || img == nil {
 				errChan <- err
 				return
 			}
-			log("screen captured")
 
 			buffer := &bytes.Buffer{}
 			if err := jpeg.Encode(buffer, image.Image(img), &jpeg.Options{Quality: 100 /*default: 75*/}); err != nil {
 				errChan <- err
 				return
 			}
-			log("jpeg encoded")
 
 			sizeBytes := make([]byte, 4)
 			binary.BigEndian.PutUint32(sizeBytes, uint32(buffer.Len()))
-			log("size calculated")
 
 			n, err := con.Write(append(sizeBytes, buffer.Bytes()...))
 			if err != nil {
@@ -61,7 +62,6 @@ func startStreaming(ip string, port uint16) error {
 				return
 			}
 
-			log("bytes sent")
 			if n != buffer.Len()+4 /*4 bytes -> img size*/ {
 				errChan <- fmt.Errorf("%d != %d written bytes differ", n, buffer.Len())
 				return
@@ -71,12 +71,15 @@ func startStreaming(ip string, port uint16) error {
 
 	select {
 	case <-ctx.Done():
+		*isCancelled = true
+		con.Close()
+		cancel()
 		return nil
 	case err := <-errChan:
 		return err
 	}
 }
 
-func log(s string) {
-	fmt.Println(s)
+func log(s ...interface{}) {
+	fmt.Println(s...)
 }
