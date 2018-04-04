@@ -13,11 +13,12 @@ func main() {
 		"resources.go",
 		"icon_online.ico",
 		"icon_offline.ico",
+		"icon_no_server.ico",
 	)
 }
 
 func compileResources(destination string, resourceFiles ...string) {
-	resources, err := os.OpenFile(destination, os.O_CREATE|os.O_WRONLY, 666)
+	resources, err := os.OpenFile(destination, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
 	}
@@ -30,7 +31,7 @@ func compileResources(destination string, resourceFiles ...string) {
 	for _, f := range resourceFiles {
 		data, err := ioutil.ReadFile(f)
 		if err != nil {
-			fmt.Println("cannot read file:", f, "\n")
+			fmt.Println("cannot read file:", f)
 			panic(err)
 		}
 		withoutExtension := strings.Replace(path.Base(f), path.Ext(f), "", 1)

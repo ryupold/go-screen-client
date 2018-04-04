@@ -9,7 +9,7 @@ import (
 	"image/jpeg"
 	"net"
 
-	"github.com/vova616/screenshot"
+	"github.com/kbinani/screenshot"
 )
 
 func startStreaming(ctx context.Context, ip string, port uint16) error {
@@ -31,17 +31,25 @@ func startStreaming(ctx context.Context, ip string, port uint16) error {
 
 		defer func() {
 			pancake := recover()
-			if pancake == nil {
+			if pancake != nil {
+				log("recovered: ", pancake)
+			} else {
 				return
 			}
 			paniC, ok := pancake.(error)
-			if ok {
+			if ok && paniC != nil {
 				errChan <- paniC
 			}
 		}()
 
 		for !*isCancelled {
-			img, err := screenshot.CaptureScreen()
+			displayID := config.Display
+			if displayID >= screenshot.NumActiveDisplays() {
+				displayID = 0
+				config.Display = 0
+				saveConfig()
+			}
+			img, err := screenshot.CaptureDisplay(displayID)
 			if err != nil || img == nil {
 				errChan <- err
 				return
@@ -56,8 +64,19 @@ func startStreaming(ctx context.Context, ip string, port uint16) error {
 			sizeBytes := make([]byte, 4)
 			binary.BigEndian.PutUint32(sizeBytes, uint32(buffer.Len()))
 
+			defer func() {
+				pancake := recover()
+				if pancake != nil {
+					log("recovered in loop: ", pancake)
+				}
+			}()
+			if *isCancelled {
+				errChan <- fmt.Errorf("connection closed")
+				return
+			}
 			n, err := con.Write(append(sizeBytes, buffer.Bytes()...))
 			if err != nil {
+				log(err)
 				errChan <- err
 				return
 			}
