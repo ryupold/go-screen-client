@@ -45,7 +45,9 @@ func (c Config) Connection() string {
 var defaultConfig = Config{"127.0.0.1", 56565, 0}
 
 const (
-	appName           = "GoScreen"
+	appName = "GoScreen Client"
+	//Version of the application
+	Version           = "1.0.0"
 	stateNoServer     = state(0)
 	stateConnected    = state(1)
 	stateDisconnected = state(2)
@@ -196,7 +198,7 @@ func onReady() {
 				systray.SetTooltip("stopped streaming")
 			case <-aboutMenuItem.ClickedCh:
 				log("about clicked")
-				dialog.Message("%s", "Hello").Title(appName)
+				dialog.Message("%s %s", appName, Version).Title(appName).Info()
 			}
 		}
 	}()

@@ -18,6 +18,8 @@ func main() {
 }
 
 func compileResources(destination string, resourceFiles ...string) {
+	os.Remove(destination)
+
 	resources, err := os.OpenFile(destination, os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
